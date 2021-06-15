@@ -1,10 +1,13 @@
 package com.udacity.vehicles.service;
 
 import com.udacity.vehicles.client.maps.MapsClient;
+import com.udacity.vehicles.client.prices.Price;
 import com.udacity.vehicles.client.prices.PriceClient;
 import com.udacity.vehicles.domain.Location;
 import com.udacity.vehicles.domain.car.Car;
 import com.udacity.vehicles.domain.car.CarRepository;
+
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -72,6 +75,8 @@ public class CarService {
      */
     public Car save(Car car) {
         if (car.getId() != null) {
+            savePrice(car.getPrice(), car.getId());
+
             return repository.findById(car.getId())
                     .map(carToBeUpdated -> {
                         carToBeUpdated.setDetails(car.getDetails());
@@ -80,7 +85,20 @@ public class CarService {
                     }).orElseThrow(CarNotFoundException::new);
         }
 
-        return repository.save(car);
+        Car savedCar = repository.save(car);
+        savePrice(car.getPrice(), savedCar.getId());
+        return savedCar;
+    }
+
+    public void savePrice(String price, Long vehicleId) {
+        try {
+            BigDecimal priceBigDecimal = BigDecimal.valueOf(Long.parseLong(price));
+            priceClient.savePrice(new Price("USD", priceBigDecimal, vehicleId));
+        } catch (NumberFormatException e) {
+            e.printStackTrace();
+
+            throw new InvalidPriceException();
+        }
     }
 
     /**
@@ -93,6 +111,7 @@ public class CarService {
             throw new CarNotFoundException();
         }
 
+        priceClient.deletePrice(carOptional.get().getId());
         repository.delete(carOptional.get());
     }
 }
